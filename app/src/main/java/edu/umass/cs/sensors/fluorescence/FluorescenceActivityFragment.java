@@ -1,6 +1,7 @@
 package edu.umass.cs.sensors.fluorescence;
 
 import android.app.Activity;
+import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -10,13 +11,20 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
-import android.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
+
+import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
+import org.opencv.core.Core;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.core.Point;
+import org.opencv.imgproc.Imgproc;
 
 import java.io.File;
 import java.io.IOException;
@@ -32,6 +40,7 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
     static final int REQUEST_TAKE_PHOTO = 11111;
 
     private ImageView mImageView = null;
+    private Bitmap image = null;
 
     public FluorescenceActivityFragment() {
     }
@@ -43,6 +52,11 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
         // This is needed to be able to keep the image between screen rotations
         // Because of this, onCreate() is only called once for this fragment (not called on configuration change)
         setRetainInstance(true);
+
+        if (!OpenCVLoader.initDebug()) {
+            // Handle initialization error
+            while(true);
+        }
     }
 
     @Override
@@ -51,6 +65,7 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
         View view = inflater.inflate(R.layout.fragment_fluorescence, container, false);
         mImageView = (ImageView)view.findViewById(R.id.photoView);
         Button captureBtn = (Button)view.findViewById(R.id.captureBtn);
+        Button processBtn = (Button)view.findViewById(R.id.processBtn);
 
         // Check if there is a camera.
         Context context = getActivity();
@@ -62,6 +77,7 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
         }
 
         captureBtn.setOnClickListener(this);
+        processBtn.setOnClickListener(this);
 
         return view;
     }
@@ -71,10 +87,10 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
         super.onActivityCreated(savedInstanceState);
 
         FluorescenceActivity activity = (FluorescenceActivity) getActivity();
-        Bitmap retainedImage = activity.getRetainedImageBitmap();
+        image = activity.getRetainedImageBitmap();
 
-        if (retainedImage != null) {
-            mImageView.setImageBitmap(retainedImage);
+        if (image != null) {
+            mImageView.setImageBitmap(image);
         }
     }
 
@@ -181,11 +197,62 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
 
         // TODO: Look at using bmOptions.inBitmap to potentially reduce memory consumption (old code used bmOptions.inPurgeable)
 
-        Bitmap bitmap = BitmapFactory.decodeFile(imagePath, bmOptions);
-        imageView.setImageBitmap(bitmap);
+        image = BitmapFactory.decodeFile(imagePath, bmOptions);
+        imageView.setImageBitmap(image);
 
         FluorescenceActivity activity = (FluorescenceActivity)getActivity();
-        activity.setRetainedImageBitmap(bitmap);
+        activity.setRetainedImageBitmap(image);
+    }
+
+    private void watershedImage() {
+        Mat thresh = new Mat(), cvImage = new Mat(), opening = new Mat(), sureBg = new Mat();
+        Mat sureFg = new Mat(), distTransform = new Mat(), unknown = new Mat();
+
+        Point defaultPoint = new Point(-1, -1);
+
+        Utils.bitmapToMat(image, cvImage);
+
+        Imgproc.cvtColor(cvImage, thresh, Imgproc.COLOR_BGR2GRAY);
+        Imgproc.threshold(thresh, thresh, 0, 255, Imgproc.THRESH_BINARY_INV + Imgproc.THRESH_OTSU);
+
+//        Utils.matToBitmap(thresh, image);
+//        mImageView.setImageBitmap(image);
+
+        Mat kernel = new Mat( 3, 3, CvType.CV_8UC1);
+        byte kernelData[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+        kernel.put(0, 0, kernelData);
+
+        Imgproc.morphologyEx(thresh, opening, Imgproc.MORPH_OPEN, kernel, defaultPoint, 2);
+        Imgproc.dilate(opening, sureBg, kernel, defaultPoint, 3);
+        Imgproc.distanceTransform(opening, distTransform, Imgproc.DIST_L2, 5);
+
+//        Mat imDisp = new Mat();
+//        distTransform.convertTo(imDisp, CvType.CV_8UC1);
+//        Utils.matToBitmap(imDisp, image);
+//        mImageView.setImageBitmap(image);
+
+        double transformMax = Core.minMaxLoc(distTransform).maxVal;
+        Imgproc.threshold(distTransform, sureFg, 0.7 * transformMax, 255, Imgproc.THRESH_BINARY);
+
+        sureFg.convertTo(sureFg, CvType.CV_8UC1);
+        Core.subtract(sureBg, sureFg, unknown);
+
+//        Utils.matToBitmap(sureFg, image);
+//        mImageView.setImageBitmap(image);
+
+//        Mat fg = new Mat(cvImage.size(), CvType.CV_8U);
+//        Imgproc.erode(thresh,fg,new Mat(),new Point(-1,-1),2);
+//
+//        Mat bg = new Mat(cvImage.size(),CvType.CV_8U);
+//        Imgproc.dilate(thresh,bg,new Mat(),new Point(-1,-1),3);
+//        Imgproc.threshold(bg,bg,1, 128,Imgproc.THRESH_BINARY_INV);
+//
+//        Mat markers = new Mat(cvImage.size(),CvType.CV_8U, new Scalar(0));
+//        Core.add(fg, bg, markers);
+//
+//        WatershedSegmenter segmenter = new WatershedSegmenter();
+//        segmenter.setMarkers(markers);
+//        Mat result = segmenter.process(cvImage);
     }
 
     @Override
@@ -193,6 +260,10 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
         switch (v.getId()) {
             case R.id.captureBtn:
                 dispatchTakePictureIntent();
+                break;
+
+            case R.id.processBtn:
+                watershedImage();
                 break;
 
             default:

@@ -2,11 +2,14 @@ package edu.umass.cs.sensors.fluorescence;
 
 import android.app.FragmentManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
 import android.view.Menu;
 import android.view.MenuItem;
+
+import java.io.File;
 
 public class FluorescenceActivity extends ActionBarActivity {
 
@@ -107,7 +110,13 @@ public class FluorescenceActivity extends ActionBarActivity {
         imageRetainFragment.setCurrentImage(bitmap);
     }
 
+//    public Bitmap getRetainedImageBitmap() {
+//        return imageRetainFragment.getCurrentImage();
+//    }
+
     public Bitmap getRetainedImageBitmap() {
-        return imageRetainFragment.getCurrentImage();
+        File imgFile = new  File("/storage/emulated/0/Download/water_coins.jpg");
+
+        return BitmapFactory.decodeFile(imgFile.getAbsolutePath());
     }
 }
