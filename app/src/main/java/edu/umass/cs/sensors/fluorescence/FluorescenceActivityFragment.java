@@ -237,8 +237,8 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
         sureFg.convertTo(sureFg, CvType.CV_8UC1);
         Core.subtract(sureBg, sureFg, unknown);
 
-//        Utils.matToBitmap(sureFg, image);
-//        mImageView.setImageBitmap(image);
+        Utils.matToBitmap(sureFg, image);
+        mImageView.setImageBitmap(image);
 
 //        Mat fg = new Mat(cvImage.size(), CvType.CV_8U);
 //        Imgproc.erode(thresh,fg,new Mat(),new Point(-1,-1),2);
