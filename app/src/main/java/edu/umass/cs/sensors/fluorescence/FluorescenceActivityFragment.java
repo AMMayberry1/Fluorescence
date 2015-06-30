@@ -205,7 +205,6 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
     }
 
     private void watershedImage() {
-        Mat thresh = new Mat(), cvImage = new Mat(), opening = new Mat(), sureBg = new Mat();
         Mat sureFg = new Mat(), distTransform = new Mat(), unknown = new Mat();
 
         Point defaultPoint = new Point(-1, -1);

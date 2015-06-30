@@ -1,0 +1,2 @@
+# Need to keep the Android binaries for opencv in here
+!*.so
