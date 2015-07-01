@@ -16,6 +16,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import org.opencv.android.OpenCVLoader;
@@ -24,6 +25,7 @@ import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Point;
+import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
 import java.io.File;
@@ -41,6 +43,7 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
 
     private ImageView mImageView = null;
     private Bitmap image = null;
+    View FluorescenceView = null;
 
     public FluorescenceActivityFragment() {
     }
@@ -62,10 +65,10 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_fluorescence, container, false);
-        mImageView = (ImageView)view.findViewById(R.id.photoView);
-        Button captureBtn = (Button)view.findViewById(R.id.captureBtn);
-        Button processBtn = (Button)view.findViewById(R.id.processBtn);
+        FluorescenceView = inflater.inflate(R.layout.fragment_fluorescence, container, false);
+        mImageView = (ImageView)FluorescenceView.findViewById(R.id.photoView);
+        Button captureBtn = (Button)FluorescenceView.findViewById(R.id.captureBtn);
+        Button processBtn = (Button)FluorescenceView.findViewById(R.id.processBtn);
 
         // Check if there is a camera.
         Context context = getActivity();
@@ -73,13 +76,13 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
         if(packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA) == false){
             Toast.makeText(getActivity(), "This device does not have a rear-facing camera. App cannot function.", Toast.LENGTH_SHORT)
                     .show();
-            return view;
+            return FluorescenceView;
         }
 
         captureBtn.setOnClickListener(this);
         processBtn.setOnClickListener(this);
 
-        return view;
+        return FluorescenceView;
     }
 
     @Override
@@ -205,8 +208,11 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
     }
 
     private void watershedImage() {
+        TextView countText = (TextView)FluorescenceView.findViewById(R.id.countText);
+
         Mat thresh = new Mat(), cvImage = new Mat(), opening = new Mat(), sureBg = new Mat();
         Mat sureFg = new Mat(), distTransform = new Mat(), unknown = new Mat();
+        Mat labels = new Mat(), stats = new Mat(), centroids = new Mat(), centerMarked = new Mat();
 
         Point defaultPoint = new Point(-1, -1);
 
@@ -237,7 +243,25 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
         sureFg.convertTo(sureFg, CvType.CV_8UC1);
         Core.subtract(sureBg, sureFg, unknown);
 
-        Utils.matToBitmap(sureFg, image);
+//        Utils.matToBitmap(sureFg, image);
+//        mImageView.setImageBitmap(image);
+
+        Imgproc.connectedComponentsWithStats(sureFg, labels, stats, centroids, 8, CvType.CV_16UC1);
+
+        centerMarked = cvImage.clone();
+        Scalar red = new Scalar(255, 0, 0);
+
+        // Skip first element b/c it is centroid of background
+        for (int i = 1; i < centroids.rows(); i++) {
+            int x = (int)centroids.get(i, 0)[0];
+            int y = (int)centroids.get(i, 1)[0];
+
+            Imgproc.circle(centerMarked, new Point(x, y), 3, red, -1);
+        }
+
+        countText.setText("Cell Count: " + Integer.toString(centroids.rows() - 1));
+
+        Utils.matToBitmap(centerMarked, image);
         mImageView.setImageBitmap(image);
 
 //        Mat fg = new Mat(cvImage.size(), CvType.CV_8U);
