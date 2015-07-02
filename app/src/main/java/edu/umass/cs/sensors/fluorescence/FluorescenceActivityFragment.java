@@ -26,6 +26,8 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
+import org.opencv.core.Size;
+import org.opencv.imgproc.CLAHE;
 import org.opencv.imgproc.Imgproc;
 
 import java.io.File;
@@ -196,7 +198,8 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
 
         // Decode the image file into a Bitmap sized to fill the View
         bmOptions.inJustDecodeBounds = false;
-        bmOptions.inSampleSize = scaleFactor;
+//        bmOptions.inSampleSize = scaleFactor;
+        bmOptions.inSampleSize = 1;
 
         // TODO: Look at using bmOptions.inBitmap to potentially reduce memory consumption (old code used bmOptions.inPurgeable)
 
@@ -207,7 +210,7 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
         activity.setRetainedImageBitmap(image);
     }
 
-    private void watershedImage() {
+    private void coinDemo() {
         TextView countText = (TextView)FluorescenceView.findViewById(R.id.countText);
 
         Mat thresh = new Mat(), cvImage = new Mat(), opening = new Mat(), sureBg = new Mat();
@@ -221,8 +224,8 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
         Imgproc.cvtColor(cvImage, thresh, Imgproc.COLOR_BGR2GRAY);
         Imgproc.threshold(thresh, thresh, 0, 255, Imgproc.THRESH_BINARY_INV + Imgproc.THRESH_OTSU);
 
-//        Utils.matToBitmap(thresh, image);
-//        mImageView.setImageBitmap(image);
+        Utils.matToBitmap(thresh, image);
+        mImageView.setImageBitmap(image);
 
         Mat kernel = new Mat( 3, 3, CvType.CV_8UC1);
         byte kernelData[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 };
@@ -261,8 +264,8 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
 
         countText.setText("Cell Count: " + Integer.toString(centroids.rows() - 1));
 
-        Utils.matToBitmap(centerMarked, image);
-        mImageView.setImageBitmap(image);
+//        Utils.matToBitmap(centerMarked, image);
+//        mImageView.setImageBitmap(image);
 
 //        Mat fg = new Mat(cvImage.size(), CvType.CV_8U);
 //        Imgproc.erode(thresh,fg,new Mat(),new Point(-1,-1),2);
@@ -277,6 +280,26 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
 //        WatershedSegmenter segmenter = new WatershedSegmenter();
 //        segmenter.setMarkers(markers);
 //        Mat result = segmenter.process(cvImage);
+    }
+
+    private void watershedImage() {
+        Mat cvImage = new Mat(), tophat = new Mat(), histEq = new Mat(), medFilt = new Mat();
+        Mat sureFg = new Mat(), distTransform = new Mat(), unknown = new Mat();
+        Mat labels = new Mat(), stats = new Mat(), centroids = new Mat(), centerMarked = new Mat();
+
+        Point defaultPoint = new Point(-1, -1);
+
+        Utils.bitmapToMat(image, cvImage);
+
+        Imgproc.cvtColor(cvImage, cvImage, Imgproc.COLOR_BGR2GRAY);
+        Mat kernel = Imgproc.getStructuringElement(Imgproc.CV_SHAPE_ELLIPSE, new Size(10,10));
+
+        Imgproc.morphologyEx(cvImage, tophat, Imgproc.MORPH_TOPHAT, kernel, defaultPoint, 1);
+        CLAHE clahe = Imgproc.createCLAHE(0.01, new Size(8,8));
+        clahe.apply(tophat, histEq);
+
+        Imgproc.medianBlur(histEq, medFilt, 10);
+        
     }
 
     @Override

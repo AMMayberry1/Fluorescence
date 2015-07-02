@@ -115,7 +115,7 @@ public class FluorescenceActivity extends ActionBarActivity {
 //    }
 
     public Bitmap getRetainedImageBitmap() {
-        File imgFile = new  File("/storage/emulated/0/Download/water_coins.jpg");
+        File imgFile = new  File("/storage/emulated/0/Download/beads uv1.jpg");
 
         return BitmapFactory.decodeFile(imgFile.getAbsolutePath());
     }
