@@ -224,8 +224,8 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
         Imgproc.cvtColor(cvImage, thresh, Imgproc.COLOR_BGR2GRAY);
         Imgproc.threshold(thresh, thresh, 0, 255, Imgproc.THRESH_BINARY_INV + Imgproc.THRESH_OTSU);
 
-        Utils.matToBitmap(thresh, image);
-        mImageView.setImageBitmap(image);
+//        Utils.matToBitmap(thresh, image);
+//        mImageView.setImageBitmap(image);
 
         Mat kernel = new Mat( 3, 3, CvType.CV_8UC1);
         byte kernelData[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 };
@@ -264,8 +264,8 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
 
         countText.setText("Cell Count: " + Integer.toString(centroids.rows() - 1));
 
-//        Utils.matToBitmap(centerMarked, image);
-//        mImageView.setImageBitmap(image);
+        Utils.matToBitmap(centerMarked, image);
+        mImageView.setImageBitmap(image);
 
 //        Mat fg = new Mat(cvImage.size(), CvType.CV_8U);
 //        Imgproc.erode(thresh,fg,new Mat(),new Point(-1,-1),2);
@@ -282,26 +282,6 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
 //        Mat result = segmenter.process(cvImage);
     }
 
-    private void watershedImage() {
-        Mat cvImage = new Mat(), tophat = new Mat(), histEq = new Mat(), medFilt = new Mat();
-        Mat sureFg = new Mat(), distTransform = new Mat(), unknown = new Mat();
-        Mat labels = new Mat(), stats = new Mat(), centroids = new Mat(), centerMarked = new Mat();
-
-        Point defaultPoint = new Point(-1, -1);
-
-        Utils.bitmapToMat(image, cvImage);
-
-        Imgproc.cvtColor(cvImage, cvImage, Imgproc.COLOR_BGR2GRAY);
-        Mat kernel = Imgproc.getStructuringElement(Imgproc.CV_SHAPE_ELLIPSE, new Size(10,10));
-
-        Imgproc.morphologyEx(cvImage, tophat, Imgproc.MORPH_TOPHAT, kernel, defaultPoint, 1);
-        CLAHE clahe = Imgproc.createCLAHE(0.01, new Size(8,8));
-        clahe.apply(tophat, histEq);
-
-        Imgproc.medianBlur(histEq, medFilt, 10);
-        
-    }
-
     @Override
     public void onClick(View v) {
         switch (v.getId()) {
@@ -311,10 +291,71 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
 
             case R.id.processBtn:
                 watershedImage();
+//                coinDemo();
                 break;
 
             default:
                 break;
         }
     }
+
+    private void watershedImage() {
+        Mat cvImage = new Mat(), tophat = new Mat(), histEq = new Mat(), medFilt = new Mat();
+        Mat thresh = new Mat(), sureFg = new Mat(), distTransform = new Mat(), eroded = new Mat();
+        Mat sureBg = new Mat(), labels = new Mat(), stats = new Mat(), centroids = new Mat();
+
+        Point defaultPoint = new Point(-1, -1);
+
+        // TODO: does this default to RGB or BGR?
+        Utils.bitmapToMat(image, cvImage);
+
+        Imgproc.cvtColor(cvImage, cvImage, Imgproc.COLOR_RGB2GRAY);
+        Mat kernel = Imgproc.getStructuringElement(Imgproc.CV_SHAPE_ELLIPSE, new Size(10,10));
+
+        Imgproc.morphologyEx(cvImage, tophat, Imgproc.MORPH_TOPHAT, kernel, defaultPoint, 1);
+        CLAHE clahe = Imgproc.createCLAHE(2.55, new Size(8, 8));
+        clahe.apply(tophat, histEq);
+
+//        Utils.matToBitmap(histEq, image);
+//        mImageView.setImageBitmap(image);
+
+        Imgproc.medianBlur(histEq, medFilt, 7);
+        Imgproc.threshold(medFilt, thresh, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
+
+//        Imgproc.dilate(thresh, sureBg, kernel, defaultPoint, 1);
+        Imgproc.distanceTransform(thresh, distTransform, Imgproc.DIST_L2, Imgproc.CV_DIST_MASK_PRECISE);
+
+//        double transformMax = Core.minMaxLoc(distTransform).maxVal;
+        distTransform.convertTo(distTransform, CvType.CV_8UC1);
+        Imgproc.threshold(distTransform, sureFg, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
+
+        sureFg.convertTo(sureFg, CvType.CV_8UC1);
+//        Core.subtract(sureBg, sureFg, unknown)
+
+        Mat erodeKernel = Imgproc.getStructuringElement(Imgproc.CV_SHAPE_ELLIPSE, new Size(5,5));
+        Imgproc.erode(sureFg, eroded, erodeKernel, defaultPoint, 1);
+
+        Utils.matToBitmap(eroded, image);
+        mImageView.setImageBitmap(image);
+
+        Imgproc.connectedComponentsWithStats(eroded, labels, stats, centroids, 8, CvType.CV_16UC1);
+
+        Mat centerMarked = cvImage.clone();
+        Scalar red = new Scalar(255, 0, 0);
+
+        // Skip first element b/c it is centroid of background
+        for (int i = 1; i < centroids.rows(); i++) {
+            int x = (int)centroids.get(i, 0)[0];
+            int y = (int)centroids.get(i, 1)[0];
+
+            Imgproc.circle(centerMarked, new Point(x, y), 3, red, -1);
+        }
+
+        TextView countText = (TextView)FluorescenceView.findViewById(R.id.countText);
+        countText.setText("Cell Count: " + Integer.toString(centroids.rows() - 1));
+
+        Utils.matToBitmap(centerMarked, image);
+        mImageView.setImageBitmap(image);
+    }
+
 }
