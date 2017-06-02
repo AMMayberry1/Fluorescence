@@ -289,6 +289,7 @@ public class FluorescenceActivityFragment extends Fragment implements Button.OnC
                 dispatchTakePictureIntent();
                 break;
 
+            // TODO: Don't allow repeated processing on the same image
             case R.id.processBtn:
                 watershedImage();
 //                coinDemo();

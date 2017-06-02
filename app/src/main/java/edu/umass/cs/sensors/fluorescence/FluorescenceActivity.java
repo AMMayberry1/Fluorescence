@@ -116,8 +116,8 @@ public class FluorescenceActivity extends ActionBarActivity {
 
     // TODO: Add a way to load an image from the gallery
     public Bitmap getRetainedImageBitmap() {
-//        File imgFile = new  File("/storage/emulated/0/Download/beads uv1.jpg");
-        File imgFile = new  File("/storage/emulated/0/Download/bright_mid.jpg");
+        File imgFile = new  File("/sdcard/Download/beads2.jpg");
+//        File imgFile = new  File("/storage/emulated/0/Download/bright_mid.jpg");
 //        File imgFile = new  File("/storage/emulated/0/Download/water_coins.jpg");
 
         return BitmapFactory.decodeFile(imgFile.getAbsolutePath());
